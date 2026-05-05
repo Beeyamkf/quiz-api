@@ -1,0 +1,13 @@
+# Visual Studio
+.vs/
+bin/
+obj/
+*.user
+*.suo
+
+# logs
+*.log
+
+# backups
+*.tmp
+*.bak

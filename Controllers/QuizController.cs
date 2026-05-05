@@ -1,0 +1,119 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using QRCoder;
+using QuizAPI.Models;
+using QuizAPI.Data;
+using System;
+
+[ApiController]
+[Route("api/quiz")]
+public class QuizController : ControllerBase
+{
+    private readonly IQuizRepository _repo;
+
+
+    public QuizController(IQuizRepository repo)
+    {
+        _repo = repo;
+      
+    }
+
+    // =====================
+    // CREATE QUIZ
+    // =====================
+    [HttpPost("create")]
+    public async Task<IActionResult> CreateQuiz(CreateQuizRequest req)
+    {
+        var code = "QZ" + Guid.NewGuid().ToString("N")[..6].ToUpper();
+
+        var quiz = new Quiz
+        {
+            Title = req.Title,
+            TeacherId = req.TeacherId,
+            Code = code
+        };
+
+        var id = await _repo.CreateQuizAsync(quiz);
+
+        var qr = GenerateQr(code);
+
+        return Ok(new
+        {
+            QuizId = id,
+            Code = code,
+            QrBase64 = qr
+        });
+    }
+
+    // =====================
+    // GET QUIZ FULL (preview teacher)
+    // =====================
+    [HttpGet("{quizId}/full")]
+    public async Task<IActionResult> GetQuizFull(int quizId)
+    {
+        var data = await _repo.GetQuizFull(quizId);
+        return Ok(data);
+    }
+
+    // =====================
+    // MY QUIZZES (teacher list)
+    // =====================
+    [HttpGet("my-quizzes/{teacherId}")]
+    public async Task<IActionResult> MyQuizzes(int teacherId)
+    {
+        var data = await _repo.GetByTeacherIdAsync(teacherId);
+        return Ok(data);
+    }
+    // =====================
+    // DELETE QUIZ
+    // =====================
+    [HttpDelete("{quizId}")]
+    public async Task<IActionResult> DeleteQuiz(int quizId)
+    {
+        await _repo.DeleteQuizAsync(quizId);
+        return Ok("Quiz deleted");
+    }
+
+    [HttpGet("{quizId}/with-qr")]
+    public async Task<IActionResult> GetQuizWithQr(int quizId)
+    {
+        var quiz = await _repo.GetByIdAsync(quizId);
+        var qr = GenerateQr(quiz.Code);
+
+        var data = await _repo.GetQuizFull(quizId);
+
+        return Ok(new
+        {
+            quizId,
+            code = quiz.Code,
+            qrBase64 = qr,
+            questions = data
+        });
+    }
+    // =====================
+    // CLEAR STUDENTS RESULTS
+    // =====================
+    [HttpDelete("{quizId}/clear-results")]
+    public async Task<IActionResult> ClearResults(int quizId)
+    {
+        await _repo.ClearQuizResultsAsync(quizId);
+        return Ok("Results cleared");
+    }
+
+    [HttpPut("{quizId}")]
+    public async Task<IActionResult> UpdateQuiz(int quizId, UpdateQuizRequest req)
+    {
+        await _repo.UpdateQuizAsync(quizId, req.Title);
+        return Ok("Quiz updated");
+    }
+    // =====================
+    // QR GENERATOR
+    // =====================
+    private string GenerateQr(string text)
+    {
+        using var qr = new QRCodeGenerator();
+        var data = qr.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
+        var png = new PngByteQRCode(data);
+        return Convert.ToBase64String(png.GetGraphic(20));
+    }
+
+}
