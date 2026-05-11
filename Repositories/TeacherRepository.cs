@@ -1,5 +1,5 @@
 ﻿using Dapper;
-using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 using QuizAPI.Models;
 using System.Data;
 
@@ -18,7 +18,7 @@ public class TeacherRepository : ITeacherRepository
     }
 
     private IDbConnection Connection =>
-       new SqliteConnection(_config.GetConnectionString("DefaultConnection"));
+       new SqlConnection(_config.GetConnectionString("DefaultConnection"));
 
     public async Task<int> RegisterAsync(Teacher teacher)
     {

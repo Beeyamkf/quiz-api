@@ -1,5 +1,5 @@
 ﻿using Dapper;
-using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 using System.Data;
 using QuizAPI.Models;
 
@@ -22,7 +22,7 @@ public class QuestionRepository : IQuestionRepository
     }
 
     private IDbConnection Connection =>
-       new SqliteConnection(_config.GetConnectionString("DefaultConnection"));
+       new SqlConnection(_config.GetConnectionString("DefaultConnection"));
 
     // =========================
     // ADD QUESTION
