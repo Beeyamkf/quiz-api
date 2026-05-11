@@ -1,10 +1,19 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//
+// =====================
+// 🌐 RENDER PORT FIX (IMPORTANT)
+// =====================
+// Render fournit une variable PORT automatiquement
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+//
 // =====================
 // CONTROLLERS
 // =====================
@@ -14,6 +23,8 @@ builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
 builder.Services.AddScoped<IQuizRepository, QuizRepository>();
 builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
+
+//
 // =====================
 // SWAGGER
 // =====================
@@ -54,7 +65,10 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
+//
+// =====================
+// CORS
+// =====================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
@@ -65,6 +79,8 @@ builder.Services.AddCors(options =>
                   .AllowAnyMethod();
         });
 });
+
+//
 // =====================
 // JWT CONFIG
 // =====================
@@ -89,11 +105,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     };
 });
 
+//
 // =====================
 // BUILD APP
 // =====================
 var app = builder.Build();
 
+//
 // =====================
 // PIPELINE
 // =====================
@@ -104,8 +122,8 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
 
-app.UseAuthentication();   // IMPORTANT
-app.UseAuthorization();    // IMPORTANT
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
