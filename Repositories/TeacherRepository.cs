@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
+using Npgsql;
 using QuizAPI.Models;
 using System.Data;
 
@@ -18,7 +19,7 @@ public class TeacherRepository : ITeacherRepository
     }
 
     private IDbConnection Connection =>
-       new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+    new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
     public async Task<int> RegisterAsync(Teacher teacher)
     {

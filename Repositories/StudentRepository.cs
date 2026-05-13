@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient ;
+using Npgsql;
 using System.Data;
 using QuizAPI.Models;
 
@@ -27,7 +28,7 @@ public class StudentRepository : IStudentRepository
     }
 
     private IDbConnection Connection =>
-        new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+        new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
     // =====================
     // CREATE ATTEMPT

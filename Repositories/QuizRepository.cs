@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
+using Npgsql;
 using QuizAPI.Models;
 using System;
 using System.Data;
@@ -31,8 +32,8 @@ public class QuizRepository : IQuizRepository
     }
 
     private IDbConnection Connection =>
-        new SqlConnection(_config.GetConnectionString("DefaultConnection"));
-        public async Task<Quiz> GetByCode(string code)
+     new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
+    public async Task<Quiz> GetByCode(string code)
         {
             var sql = "SELECT * FROM Quiz WHERE Code = @code";
 
