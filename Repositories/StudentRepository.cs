@@ -1,8 +1,7 @@
 ﻿using Dapper;
-using Microsoft.Data.SqlClient ;
 using Npgsql;
-using System.Data;
 using QuizAPI.Models;
+using System.Data;
 
 public interface IStudentRepository
 {
@@ -16,29 +15,29 @@ public interface IStudentRepository
     Task<IEnumerable<QuizResultDto>> GetQuizResults(int quizId);
     Task<object> GetResultDetails(int resultId);
 }
+
 public class StudentRepository : IStudentRepository
 {
     private readonly IConfiguration _config;
- 
 
     public StudentRepository(IConfiguration config)
     {
         _config = config;
-
     }
 
     private IDbConnection Connection =>
         new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
     // =====================
-    // CREATE ATTEMPT
+    // CREATE ATTEMPT (FIXED)
     // =====================
     public async Task<int> CreateAttempt(StudentAttempt a)
     {
         var sql = @"
-    INSERT INTO StudentAttempt (QuizId, FullName, Score, CreatedAt)
-    VALUES (@QuizId, @FullName, 0, GETDATE());
-    SELECT CAST(SCOPE_IDENTITY() as int);";
+            INSERT INTO StudentAttempt (QuizId, FullName, Score, CreatedAt)
+            VALUES (@QuizId, @FullName, 0, NOW())
+            RETURNING Id;
+        ";
 
         using var db = Connection;
         return await db.QuerySingleAsync<int>(sql, new
@@ -49,30 +48,34 @@ public class StudentRepository : IStudentRepository
     }
 
     // =====================
-    // SAVE ANSWER
+    // SAVE ANSWER (FIXED)
     // =====================
     public async Task SaveAnswer(StudentAnswer a)
     {
         var sql = @"
-    IF NOT EXISTS (
-        SELECT 1 FROM StudentAnswer
-        WHERE AttemptId = @AttemptId AND QuestionId = @QuestionId
-    )
-    INSERT INTO StudentAnswer (AttemptId, QuestionId, ChoiceId, IsCorrect)
-    VALUES (@AttemptId, @QuestionId, @ChoiceId, @IsCorrect);";
+            INSERT INTO StudentAnswer (AttemptId, QuestionId, ChoiceId, IsCorrect)
+            SELECT @AttemptId, @QuestionId, @ChoiceId, @IsCorrect
+            WHERE NOT EXISTS (
+                SELECT 1 FROM StudentAnswer
+                WHERE AttemptId = @AttemptId AND QuestionId = @QuestionId
+            );
+        ";
 
         using var db = Connection;
         await db.ExecuteAsync(sql, a);
     }
+
     // =====================
     // GET CORRECT ANSWER
     // =====================
     public async Task<int> GetCorrectChoice(int questionId)
     {
         var sql = @"
-        SELECT Id 
-        FROM Choice
-        WHERE QuestionId = @questionId AND IsCorrect = 1";
+            SELECT Id 
+            FROM Choice
+            WHERE QuestionId = @questionId AND IsCorrect = true
+            LIMIT 1;
+        ";
 
         using var db = Connection;
         return await db.QueryFirstOrDefaultAsync<int>(sql, new { questionId });
@@ -84,9 +87,10 @@ public class StudentRepository : IStudentRepository
     public async Task<int> CalculateScore(int attemptId)
     {
         var sql = @"
-    SELECT ISNULL(COUNT(*),0)
-    FROM StudentAnswer
-    WHERE AttemptId = @attemptId AND IsCorrect = 1";
+            SELECT COUNT(*)
+            FROM StudentAnswer
+            WHERE AttemptId = @attemptId AND IsCorrect = true;
+        ";
 
         using var db = Connection;
         return await db.QueryFirstOrDefaultAsync<int>(sql, new { attemptId });
@@ -95,16 +99,17 @@ public class StudentRepository : IStudentRepository
     public async Task UpdateScore(int attemptId, int score)
     {
         var sql = @"
-        UPDATE StudentAttempt
-        SET Score = @score
-        WHERE Id = @attemptId";
+            UPDATE StudentAttempt
+            SET Score = @score
+            WHERE Id = @attemptId;
+        ";
 
         using var db = Connection;
         await db.ExecuteAsync(sql, new { attemptId, score });
     }
 
     // =====================
-    // QUIZ FOR STUDENT (FIXED)
+    // QUIZ FOR STUDENT
     // =====================
     public async Task<StudentQuizDto> GetQuizByAttemptIdAsync(int attemptId)
     {
@@ -167,54 +172,53 @@ public class StudentRepository : IStudentRepository
     }
 
     // =====================
-    // TEACHER RESULTS
+    // RESULTS
     // =====================
     public async Task<IEnumerable<QuizResultDto>> GetQuizResults(int quizId)
     {
         var sql = @"
-    SELECT 
-        Id,
-        FullName,
-        Score,
-        CreatedAt
-    FROM StudentAttempt
-    WHERE QuizId = @quizId
-    ORDER BY Id DESC";
+            SELECT Id, FullName, Score, CreatedAt
+            FROM StudentAttempt
+            WHERE QuizId = @quizId
+            ORDER BY Id DESC;
+        ";
 
         using var db = Connection;
         return await db.QueryAsync<QuizResultDto>(sql, new { quizId });
     }
+
+    // =====================
+    // RESULT DETAILS
+    // =====================
     public async Task<object> GetResultDetails(int resultId)
     {
         using var db = Connection;
 
-        // 1. Get attempt info
         var attempt = await db.QueryFirstOrDefaultAsync(@"
-        SELECT Id, FullName, Score
-        FROM StudentAttempt
-        WHERE Id = @resultId
-    ", new { resultId });
+            SELECT Id, FullName, Score
+            FROM StudentAttempt
+            WHERE Id = @resultId
+        ", new { resultId });
 
         if (attempt == null)
             return null;
 
-        // 2. Get questions + choices + student answers
         var rows = await db.QueryAsync(@"
-        SELECT 
-            q.Id AS QuestionId,
-            q.Text AS QuestionText,
-            c.Id AS ChoiceId,
-            c.Text AS ChoiceText,
-            c.IsCorrect,
-            sa.ChoiceId AS SelectedChoiceId
-        FROM Question q
-        LEFT JOIN Choice c ON q.Id = c.QuestionId
-        LEFT JOIN StudentAnswer sa 
-            ON sa.QuestionId = q.Id AND sa.AttemptId = @resultId
-        WHERE q.QuizId = (
-            SELECT QuizId FROM StudentAttempt WHERE Id = @resultId
-        )
-    ", new { resultId });
+            SELECT 
+                q.Id AS QuestionId,
+                q.Text AS QuestionText,
+                c.Id AS ChoiceId,
+                c.Text AS ChoiceText,
+                c.IsCorrect,
+                sa.ChoiceId AS SelectedChoiceId
+            FROM Question q
+            LEFT JOIN Choice c ON q.Id = c.QuestionId
+            LEFT JOIN StudentAnswer sa 
+                ON sa.QuestionId = q.Id AND sa.AttemptId = @resultId
+            WHERE q.QuizId = (
+                SELECT QuizId FROM StudentAttempt WHERE Id = @resultId
+            )
+        ", new { resultId });
 
         var dict = new Dictionary<int, dynamic>();
 
