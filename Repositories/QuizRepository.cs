@@ -1,7 +1,21 @@
 ﻿using Dapper;
 using Npgsql;
-using QuizAPI.Models;
 using System.Data;
+using QuizAPI.Models;
+
+public interface IQuizRepository
+{
+    Task<int> CreateQuizAsync(Quiz quiz);
+    Task<Quiz> GetByIdAsync(int id);
+    Task<StudentQuizDto> GetQuizByAttemptIdAsync(int attemptId);
+    Task<Quiz> GetByCode(string code);
+    Task<IEnumerable<QuestionWithChoicesDto>> GetQuizFull(int quizId);
+    Task<IEnumerable<Quiz>> GetByTeacherIdAsync(int teacherId);
+    Task DeleteQuizAsync(int quizId);
+    Task ClearQuizResultsAsync(int quizId);
+    Task<IEnumerable<object>> GetQuizResults(int quizId);
+    Task UpdateQuizAsync(int quizId, string title);
+}
 
 public class QuizRepository : IQuizRepository
 {
@@ -15,9 +29,9 @@ public class QuizRepository : IQuizRepository
     private IDbConnection Connection =>
         new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
-    // =====================
+    // =========================
     // CREATE QUIZ (FIXED)
-    // =====================
+    // =========================
     public async Task<int> CreateQuizAsync(Quiz quiz)
     {
         var sql = @"
@@ -30,25 +44,14 @@ public class QuizRepository : IQuizRepository
         return await db.QuerySingleAsync<int>(sql, quiz);
     }
 
-    // =====================
-    // GET BY CODE
-    // =====================
     public async Task<Quiz> GetByCode(string code)
     {
-        var sql = @"
-            SELECT * 
-            FROM Quiz 
-            WHERE Code = @code
-            LIMIT 1;
-        ";
+        var sql = "SELECT * FROM Quiz WHERE Code = @code";
 
         using var db = Connection;
         return await db.QueryFirstOrDefaultAsync<Quiz>(sql, new { code });
     }
 
-    // =====================
-    // GET BY ID
-    // =====================
     public async Task<Quiz> GetByIdAsync(int id)
     {
         var sql = "SELECT * FROM Quiz WHERE Id = @Id";
@@ -57,77 +60,105 @@ public class QuizRepository : IQuizRepository
         return await db.QueryFirstOrDefaultAsync<Quiz>(sql, new { Id = id });
     }
 
-    // =====================
-    // BY TEACHER
-    // =====================
     public async Task<IEnumerable<Quiz>> GetByTeacherIdAsync(int teacherId)
     {
         var sql = @"
             SELECT Id, Title, Code, TeacherId
             FROM Quiz
             WHERE TeacherId = @teacherId
-            ORDER BY Id DESC;
-        ";
+            ORDER BY Id DESC";
 
         using var db = Connection;
         return await db.QueryAsync<Quiz>(sql, new { teacherId });
     }
 
-    // =====================
-    // GET FULL QUIZ (SIMPLIFIED SAFE)
-    // =====================
+    // =========================
+    // GET FULL QUIZ
+    // =========================
+    public async Task<IEnumerable<QuestionWithChoicesDto>> GetQuizFull(int quizId)
+    {
+        var sql = @"
+            SELECT q.Id, q.Text,
+                   c.Id, c.Text
+            FROM Question q
+            LEFT JOIN Choice c ON q.Id = c.QuestionId
+            WHERE q.QuizId = @quizId";
+
+        using var db = Connection;
+
+        var dict = new Dictionary<int, QuestionWithChoicesDto>();
+
+        await db.QueryAsync<QuestionWithChoicesDto, ChoiceDto, QuestionWithChoicesDto>(
+            sql,
+            (q, c) =>
+            {
+                if (!dict.TryGetValue(q.Id, out var question))
+                {
+                    question = q;
+                    question.Choices = new List<ChoiceDto>();
+                    dict.Add(q.Id, question);
+                }
+
+                if (c != null)
+                    question.Choices.Add(c);
+
+                return question;
+            },
+            new { quizId },
+            splitOn: "Id"
+        );
+
+        return dict.Values;
+    }
+
+    // =========================
+    // FIXED: GET QUIZ BY ATTEMPT
+    // =========================
     public async Task<StudentQuizDto> GetQuizByAttemptIdAsync(int attemptId)
     {
         using var db = Connection;
 
         var quizId = await db.QueryFirstAsync<int>(@"
-            SELECT QuizId 
-            FROM StudentAttempt 
-            WHERE Id = @attemptId
+            SELECT QuizId FROM StudentAttempt WHERE Id = @attemptId
         ", new { attemptId });
 
         var title = await db.QueryFirstOrDefaultAsync<string>(@"
-            SELECT Title 
-            FROM Quiz 
-            WHERE Id = @quizId
+            SELECT Title FROM Quiz WHERE Id = @quizId
         ", new { quizId });
 
-        var rows = await db.QueryAsync(@"
-            SELECT 
-                q.Id AS QuestionId,
-                q.Text AS QuestionText,
-                c.Id AS ChoiceId,
-                c.Text AS ChoiceText
+        var sql = @"
+            SELECT q.Id, q.Text,
+                   c.Id, c.Text
             FROM Question q
             LEFT JOIN Choice c ON q.Id = c.QuestionId
-            WHERE q.QuizId = @quizId
-        ", new { quizId });
+            WHERE q.QuizId = @quizId";
 
         var dict = new Dictionary<int, StudentQuestionDto>();
 
-        foreach (var r in rows)
-        {
-            int qId = r.QuestionId;
-
-            if (!dict.ContainsKey(qId))
+        await db.QueryAsync<StudentQuestionDto, StudentChoiceDto, StudentQuestionDto>(
+            sql,
+            (q, c) =>
             {
-                dict[qId] = new StudentQuestionDto
+                if (!dict.ContainsKey(q.Id))
                 {
-                    Id = qId,
-                    Text = r.QuestionText,
-                    Choices = new List<StudentChoiceDto>()
-                };
-            }
+                    dict[q.Id] = new StudentQuestionDto
+                    {
+                        Id = q.Id,
+                        Text = q.Text,
+                        Choices = new List<StudentChoiceDto>()
+                    };
+                }
 
-            if (r.ChoiceId != null)
-            {
-                dict[qId].Choices.Add(new StudentChoiceDto
+                if (c != null)
                 {
-                    Id = r.ChoiceId,
-                    Text = r.ChoiceText
-                });
-            }
-        }
+                    dict[q.Id].Choices.Add(c);
+                }
+
+                return dict[q.Id];
+            },
+            new { quizId },
+            splitOn: "Id"
+        );
 
         return new StudentQuizDto
         {
@@ -136,66 +167,49 @@ public class QuizRepository : IQuizRepository
         };
     }
 
-    // =====================
+    // =========================
     // DELETE QUIZ
-    // =====================
+    // =========================
     public async Task DeleteQuizAsync(int quizId)
     {
         using var db = Connection;
 
-        await db.ExecuteAsync("DELETE FROM StudentAnswer WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId)", new { quizId });
-        await db.ExecuteAsync("DELETE FROM StudentAttempt WHERE QuizId=@quizId", new { quizId });
-        await db.ExecuteAsync("DELETE FROM Choice WHERE QuestionId IN (SELECT Id FROM Question WHERE QuizId=@quizId)", new { quizId });
-        await db.ExecuteAsync("DELETE FROM Question WHERE QuizId=@quizId", new { quizId });
-        await db.ExecuteAsync("DELETE FROM Quiz WHERE Id=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM StudentAnswer WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM StudentAttempt WHERE QuizId=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM Choice WHERE QuestionId IN (SELECT Id FROM Question WHERE QuizId=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM Question WHERE QuizId=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM Quiz WHERE Id=@quizId", new { quizId });
     }
 
-    // =====================
-    // CLEAR RESULTS
-    // =====================
     public async Task ClearQuizResultsAsync(int quizId)
     {
         using var db = Connection;
 
-        await db.ExecuteAsync(@"
-            DELETE FROM StudentAnswer
-            WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId);
-        ", new { quizId });
-
-        await db.ExecuteAsync(@"
-            DELETE FROM StudentAttempt
-            WHERE QuizId=@quizId;
-        ", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM StudentAnswer WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM StudentAttempt WHERE QuizId=@quizId", new { quizId });
     }
 
-    // =====================
-    // RESULTS LIST
-    // =====================
     public async Task<IEnumerable<object>> GetQuizResults(int quizId)
     {
+        using var db = Connection;
+
         var sql = @"
             SELECT Id, FullName, Score, CreatedAt
             FROM StudentAttempt
             WHERE QuizId = @quizId
-            ORDER BY Id DESC;
-        ";
+            ORDER BY Id DESC";
 
-        using var db = Connection;
         return await db.QueryAsync(sql, new { quizId });
     }
 
-    // =====================
-    // UPDATE QUIZ
-    // =====================
     public async Task UpdateQuizAsync(int quizId, string title)
     {
-        var sql = @"
+        using var db = Connection;
+
+        await db.ExecuteAsync(@"
             UPDATE Quiz
             SET Title = @title
-            WHERE Id = @quizId;
-        ";
-
-        using var db = Connection;
-        await db.ExecuteAsync(sql, new { quizId, title });
+            WHERE Id = @quizId
+        ", new { quizId, title });
     }
 }
