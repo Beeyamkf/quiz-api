@@ -17,20 +17,35 @@ public class AuthController : ControllerBase
         _repo = repo;
         _config = config;
     }
-
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterTeacherRequest req)
     {
-        var teacher = new Teacher
+        try
         {
-            FullName = req.FullName,
-            Email = req.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password)
-        };
+            var existing = await _repo.GetByEmailAsync(req.Email);
 
-        await _repo.RegisterAsync(teacher);
+            if (existing != null)
+                return BadRequest("Email already exists");
 
-        return Ok("User created");
+            var teacher = new Teacher
+            {
+                FullName = req.FullName,
+                Email = req.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password)
+            };
+
+            var id = await _repo.RegisterAsync(teacher);
+
+            return Ok(new { message = "User created", id });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new
+            {
+                error = ex.Message,
+                stack = ex.StackTrace
+            });
+        }
     }
 
     [HttpPost("login")]
