@@ -1,7 +1,9 @@
 ﻿using Dapper;
 using Npgsql;
-using QuizAPI.Models;
 using System.Data;
+using QuizAPI.Models;
+
+namespace QuizAPI.Repositories;
 
 public interface ITeacherRepository
 {
@@ -21,34 +23,28 @@ public class TeacherRepository : ITeacherRepository
     private IDbConnection Connection =>
         new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
-    // =========================
-    // REGISTER TEACHER (FIXED)
-    // =========================
     public async Task<int> RegisterAsync(Teacher teacher)
     {
         var sql = @"
             INSERT INTO Teacher (FullName, Email, PasswordHash)
             VALUES (@FullName, @Email, @PasswordHash)
-            RETURNING Id;";
+            RETURNING Id;
+        ";
 
         using var db = Connection;
-
         return await db.QuerySingleAsync<int>(sql, teacher);
     }
 
-    // =========================
-    // GET BY EMAIL
-    // =========================
     public async Task<Teacher> GetByEmailAsync(string email)
     {
         var sql = @"
-            SELECT *
+            SELECT Id, FullName, Email, PasswordHash
             FROM Teacher
             WHERE Email = @Email
-            LIMIT 1;";
+            LIMIT 1;
+        ";
 
         using var db = Connection;
-
         return await db.QueryFirstOrDefaultAsync<Teacher>(sql, new { Email = email });
     }
 }

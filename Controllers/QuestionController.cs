@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using QuizAPI.Models;
+using QuizAPI.Repositories;
 
 [ApiController]
 [Route("api/question")]

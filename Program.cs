@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using QuizAPI.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,24 +30,17 @@ builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 // SWAGGER
 // =====================
 builder.Services.AddEndpointsApiExplorer();
-
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Quiz API",
-        Version = "v1"
-    });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Quiz API", Version = "v1" });
 
-    // JWT AUTH in Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Enter: Bearer {your token}"
+        In = ParameterLocation.Header
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -60,7 +54,7 @@ builder.Services.AddSwaggerGen(c =>
                     Id = "Bearer"
                 }
             },
-            new string[] { }
+            new string[] {}
         }
     });
 });
@@ -108,16 +102,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     };
 });
 
-//
-// =====================
-// BUILD APP
+
 // =====================
 var app = builder.Build();
 
-//
-// =====================
-// PIPELINE
-// =====================
 app.UseSwagger();
 app.UseSwaggerUI();
 
