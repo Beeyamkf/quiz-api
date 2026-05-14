@@ -11,9 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 // 🌐 RENDER PORT FIX (IMPORTANT)
 // =====================
 // Render fournit une variable PORT automatiquement
-var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-
 //
 // =====================
 // CONTROLLERS
@@ -68,15 +67,16 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins(
-                "http://localhost:5173",
-                "https://quiz-frontendap.vercel.app"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+            policy
+                .WithOrigins(
+                    "http://localhost:5173",
+                    "https://quiz-frontendap.vercel.app"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         });
 });
-
 //
 // =====================
 // JWT CONFIG

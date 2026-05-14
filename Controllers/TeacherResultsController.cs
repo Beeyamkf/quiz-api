@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/teacher")]
+[Authorize]
 public class TeacherResultsController : ControllerBase
 {
     private readonly IStudentRepository _repo;
