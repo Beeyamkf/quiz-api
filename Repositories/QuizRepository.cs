@@ -78,35 +78,46 @@ public class QuizRepository : IQuizRepository
     public async Task<IEnumerable<QuestionWithChoicesDto>> GetQuizFull(int quizId)
     {
         var sql = @"
-            SELECT q.Id, q.Text,
-                   c.Id, c.Text
-            FROM Question q
-            LEFT JOIN Choice c ON q.Id = c.QuestionId
-            WHERE q.QuizId = @quizId";
+    SELECT 
+        q.Id,
+        q.Text,
+        c.Id,
+        c.Text,
+        c.IsCorrect
+    FROM Question q
+    LEFT JOIN Choice c ON q.Id = c.QuestionId
+    WHERE q.QuizId = @quizId";
 
         using var db = Connection;
 
         var dict = new Dictionary<int, QuestionWithChoicesDto>();
 
         await db.QueryAsync<QuestionWithChoicesDto, ChoiceDto, QuestionWithChoicesDto>(
-            sql,
-            (q, c) =>
+        sql,
+        (q, c) =>
+        {
+            if (!dict.TryGetValue(q.Id, out var question))
             {
-                if (!dict.TryGetValue(q.Id, out var question))
+                question = new QuestionWithChoicesDto
                 {
-                    question = q;
-                    question.Choices = new List<ChoiceDto>();
-                    dict.Add(q.Id, question);
-                }
+                    Id = q.Id,
+                    Text = q.Text,
+                    Choices = new List<ChoiceDto>()
+                };
 
-                if (c != null)
-                    question.Choices.Add(c);
+                dict.Add(q.Id, question);
+            }
 
-                return question;
-            },
-            new { quizId },
-            splitOn: "Id"
-        );
+            if (c != null && c.Id != 0)
+            {
+                question.Choices.Add(c);
+            }
+
+            return question;
+        },
+        new { quizId },
+        splitOn: "Id"
+    );
 
         return dict.Values;
     }

@@ -116,27 +116,28 @@ public class StudentRepository : IStudentRepository
         using var db = Connection;
 
         var quizId = await db.QueryFirstAsync<int>(@"
-            SELECT QuizId 
-            FROM StudentAttempt 
-            WHERE Id = @attemptId
-        ", new { attemptId });
+        SELECT QuizId 
+        FROM StudentAttempt 
+        WHERE Id = @attemptId
+    ", new { attemptId });
 
         var title = await db.QueryFirstOrDefaultAsync<string>(@"
-            SELECT Title 
-            FROM Quiz 
-            WHERE Id = @quizId
-        ", new { quizId });
+        SELECT Title 
+        FROM Quiz 
+        WHERE Id = @quizId
+    ", new { quizId });
 
         var rows = await db.QueryAsync(@"
-            SELECT 
-                q.Id AS QuestionId,
-                q.Text AS QuestionText,
-                c.Id AS ChoiceId,
-                c.Text AS ChoiceText
-            FROM Question q
-            LEFT JOIN Choice c ON q.Id = c.QuestionId
-            WHERE q.QuizId = @quizId
-        ", new { quizId });
+        SELECT 
+            q.Id AS QuestionId,
+            q.Text AS QuestionText,
+            c.Id AS ChoiceId,
+            c.Text AS ChoiceText
+        FROM Question q
+        LEFT JOIN Choice c ON q.Id = c.QuestionId
+        WHERE q.QuizId = @quizId
+        ORDER BY q.Id
+    ", new { quizId });
 
         var dict = new Dictionary<int, StudentQuestionDto>();
 
@@ -170,7 +171,6 @@ public class StudentRepository : IStudentRepository
             Questions = dict.Values.ToList()
         };
     }
-
     // =====================
     // RESULTS
     // =====================

@@ -43,7 +43,8 @@ public class StudentController : ControllerBase
     {
         var correct = await _repo.GetCorrectChoice(req.QuestionId);
 
-        bool isCorrect = correct == req.ChoiceId;
+        bool isCorrect = correct != 0 && correct == req.ChoiceId;
+
 
         await _repo.SaveAnswer(new StudentAnswer
         {

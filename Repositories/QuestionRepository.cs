@@ -57,11 +57,18 @@ namespace QuizAPI.Repositories;
             await db.ExecuteAsync(sql, req);
         }
 
-        public async Task DeleteQuestionAsync(int id)
-        {
-            using var db = Connection;
+    public async Task DeleteQuestionAsync(int id)
+    {
+        using var db = Connection;
 
-            await db.ExecuteAsync("DELETE FROM Choice WHERE QuestionId=@id", new { id });
-            await db.ExecuteAsync("DELETE FROM Question WHERE Id=@id", new { id });
-        }
+        await db.ExecuteAsync(
+            "DELETE FROM Choice WHERE QuestionId = @id",
+            new { id }
+        );
+
+        await db.ExecuteAsync(
+            "DELETE FROM Question WHERE Id = @id",
+            new { id }
+        );
     }
+}

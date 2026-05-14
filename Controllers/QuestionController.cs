@@ -19,6 +19,12 @@ public class QuestionController : ControllerBase
     [HttpPost("create-full")]
     public async Task<IActionResult> CreateFull(CreateQuestionWithChoicesRequest req)
     {
+        if (req == null || string.IsNullOrWhiteSpace(req.Text))
+            return BadRequest("Question text is required");
+
+        if (req.Choices == null || req.Choices.Count < 2)
+            return BadRequest("At least 2 choices required");
+
         var question = new Question
         {
             QuizId = req.QuizId,
@@ -29,6 +35,9 @@ public class QuestionController : ControllerBase
 
         foreach (var c in req.Choices)
         {
+            if (string.IsNullOrWhiteSpace(c.Text))
+                continue;
+
             await _repo.AddChoiceAsync(new Choice
             {
                 QuestionId = questionId,
