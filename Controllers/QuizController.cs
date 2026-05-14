@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using QRCoder;
 using QuizAPI.Models;
-using System.Security.Claims;
 using System;
+using System.Security.Claims;
 
 [ApiController]
 [Route("api/quiz")]
+[Authorize]
 public class QuizController : ControllerBase
 {
     private readonly IQuizRepository _repo;

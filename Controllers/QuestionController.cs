@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using QuizAPI.Models;
 using QuizAPI.Repositories;
 
 [ApiController]
 [Route("api/question")]
+[Authorize]
 public class QuestionController : ControllerBase
 {
     private readonly IQuestionRepository _repo;
