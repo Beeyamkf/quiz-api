@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using QRCoder;
 using QuizAPI.Models;
-using QuizAPI.Data;
+using System.Security.Claims;
 using System;
 
 [ApiController]
@@ -23,12 +23,19 @@ public class QuizController : ControllerBase
     [HttpPost("create")]
     public async Task<IActionResult> CreateQuiz(CreateQuizRequest req)
     {
+        var teacherIdClaim = User.FindFirst("TeacherId")?.Value;
+
+        if (teacherIdClaim == null)
+            return Unauthorized("TeacherId missing in token");
+
+        int teacherId = int.Parse(teacherIdClaim);
+
         var code = "QZ" + Guid.NewGuid().ToString("N")[..6].ToUpper();
 
         var quiz = new Quiz
         {
             Title = req.Title,
-            TeacherId = req.TeacherId,
+            TeacherId = teacherId,
             Code = code
         };
 
@@ -38,12 +45,11 @@ public class QuizController : ControllerBase
 
         return Ok(new
         {
-            QuizId = id,
-            Code = code,
-            QrBase64 = qr
+            quizId = id,
+            code = code,
+            qrBase64 = qr
         });
     }
-
     // =====================
     // GET QUIZ FULL (preview teacher)
     // =====================
