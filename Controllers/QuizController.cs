@@ -17,45 +17,58 @@ public class QuizController : ControllerBase
     }
 
     // =====================
-    // CREATE QUIZ (FIXED JWT SAFE)
+    // CREATE QUIZ (FIXED + SAFE JWT)
     // =====================
     [Authorize]
     [HttpPost("create")]
-    public async Task<IActionResult> CreateQuiz(CreateQuizRequest req)
+    public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizRequest req)
     {
-        if (req == null || string.IsNullOrWhiteSpace(req.Title))
-            return BadRequest("Title is required");
-
-        // 🔥 SAFE CLAIM EXTRACTION
-        var teacherIdClaim =
-            User.FindFirst("TeacherId")?.Value ??
-            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (teacherIdClaim == null)
-            return Unauthorized("TeacherId missing in token");
-
-        if (!int.TryParse(teacherIdClaim, out int teacherId))
-            return Unauthorized("Invalid TeacherId in token");
-
-        var code = "QZ" + Guid.NewGuid().ToString("N")[..6].ToUpper();
-
-        var quiz = new Quiz
+        try
         {
-            Title = req.Title,
-            TeacherId = teacherId,
-            Code = code
-        };
+            if (req == null || string.IsNullOrWhiteSpace(req.Title))
+                return BadRequest("Title is required");
 
-        var id = await _repo.CreateQuizAsync(quiz);
+            // 🔥 SAFE JWT CLAIM EXTRACTION
+            var teacherIdClaim =
+                User.FindFirst("TeacherId")?.Value ??
+                User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                User.FindFirst(ClaimTypes.Name)?.Value;
 
-        var qr = GenerateQr(code);
+            if (string.IsNullOrEmpty(teacherIdClaim))
+                return Unauthorized("TeacherId missing in token");
 
-        return Ok(new
+            if (!int.TryParse(teacherIdClaim, out int teacherId))
+                return Unauthorized("Invalid TeacherId in token");
+
+            var code = "QZ" + Guid.NewGuid().ToString("N")[..6].ToUpper();
+
+            var quiz = new Quiz
+            {
+                Title = req.Title,
+                TeacherId = teacherId,
+                Code = code
+            };
+
+            var id = await _repo.CreateQuizAsync(quiz);
+
+            var qr = GenerateQr(code);
+
+            return Ok(new
+            {
+                quizId = id,
+                code,
+                qrBase64 = qr
+            });
+        }
+        catch (Exception ex)
         {
-            quizId = id,
-            code,
-            qrBase64 = qr
-        });
+            // 🔥 IMPORTANT: avoid silent 500
+            return StatusCode(500, new
+            {
+                message = "Server error in CreateQuiz",
+                error = ex.Message
+            });
+        }
     }
 
     // =====================
@@ -85,7 +98,7 @@ public class QuizController : ControllerBase
     public async Task<IActionResult> DeleteQuiz(int quizId)
     {
         await _repo.DeleteQuizAsync(quizId);
-        return Ok("Quiz deleted");
+        return Ok(new { message = "Quiz deleted" });
     }
 
     // =====================
@@ -97,7 +110,7 @@ public class QuizController : ControllerBase
         var quiz = await _repo.GetByIdAsync(quizId);
 
         if (quiz == null)
-            return NotFound("Quiz not found");
+            return NotFound(new { message = "Quiz not found" });
 
         var qr = GenerateQr(quiz.Code);
         var data = await _repo.GetQuizFull(quizId);
@@ -118,20 +131,20 @@ public class QuizController : ControllerBase
     public async Task<IActionResult> ClearResults(int quizId)
     {
         await _repo.ClearQuizResultsAsync(quizId);
-        return Ok("Results cleared");
+        return Ok(new { message = "Results cleared" });
     }
 
     // =====================
     // UPDATE QUIZ
     // =====================
     [HttpPut("{quizId}")]
-    public async Task<IActionResult> UpdateQuiz(int quizId, UpdateQuizRequest req)
+    public async Task<IActionResult> UpdateQuiz(int quizId, [FromBody] UpdateQuizRequest req)
     {
         if (req == null || string.IsNullOrWhiteSpace(req.Title))
             return BadRequest("Title is required");
 
         await _repo.UpdateQuizAsync(quizId, req.Title);
-        return Ok("Quiz updated");
+        return Ok(new { message = "Quiz updated" });
     }
 
     // =====================
