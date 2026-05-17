@@ -38,7 +38,7 @@ public class QuizRepository : IQuizRepository
     {
         var sql = @"
             INSERT INTO quiz (title, code, teacherid)
-            VALUES (@title, @code, @teacherid)
+            VALUES (@title, @code, @teacherId)
             RETURNING id;
         ";
 
