@@ -25,31 +25,31 @@ namespace QuizAPI.Repositories;
         private IDbConnection Connection =>
             new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
-        public async Task<int> AddQuestionAsync(Question q)
-        {
-            var sql = @"
-            INSERT INTO question (quizid, text)
-            VALUES (@quizId, @text)
-            RETURNING id;
-        ";
+    public async Task<int> AddQuestionAsync(Question q)
+    {
+        var sql = @"
+        INSERT INTO question (quizid, text)
+        VALUES (@QuizId, @Text)
+        RETURNING id;
+    ";
 
-            using var db = Connection;
-            return await db.QuerySingleAsync<int>(sql, q);
-        }
+        using var db = Connection;
+        return await db.QuerySingleAsync<int>(sql, q);
+    }
 
-        public async Task<int> AddChoiceAsync(Choice c)
-        {
-            var sql = @"
-            INSERT INTO choice (questionid, text, iscorrect)
-            VALUES (@questionid, @text, @iscorrect)
-            RETURNING id;
-        ";
+    public async Task<int> AddChoiceAsync(Choice c)
+    {
+        var sql = @"
+        INSERT INTO choice (questionid, text, iscorrect)
+        VALUES (@QuestionId, @Text, @IsCorrect)
+        RETURNING id;
+    ";
 
-            using var db = Connection;
-            return await db.QuerySingleAsync<int>(sql, c);
-        }
+        using var db = Connection;
+        return await db.QuerySingleAsync<int>(sql, c);
+    }
 
-        public async Task UpdateQuestionAsync(UpdateQuestionRequest req)
+    public async Task UpdateQuestionAsync(UpdateQuestionRequest req)
         {
             var sql = @"UPDATE question SET text=@text WHERE id=@id";
 

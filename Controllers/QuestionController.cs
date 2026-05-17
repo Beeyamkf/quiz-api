@@ -27,19 +27,14 @@ public class QuestionController : ControllerBase
         if (req.Choices == null || req.Choices.Count < 2)
             return BadRequest("At least 2 choices required");
 
-        var question = new Question
+        var questionId = await _repo.AddQuestionAsync(new Question
         {
             QuizId = req.QuizId,
             Text = req.Text
-        };
-
-        var questionId = await _repo.AddQuestionAsync(question);
+        });
 
         foreach (var c in req.Choices)
         {
-            if (string.IsNullOrWhiteSpace(c.Text))
-                continue;
-
             await _repo.AddChoiceAsync(new Choice
             {
                 QuestionId = questionId,
@@ -50,15 +45,15 @@ public class QuestionController : ControllerBase
 
         return Ok(new
         {
-            QuestionId = questionId
+            questionId
         });
     }
 
 
-// =========================
-// UPDATE QUESTION TEXT
-// =========================
-[HttpPut("update")]
+    // =========================
+    // UPDATE QUESTION TEXT
+    // =========================
+    [HttpPut("update")]
     public async Task<IActionResult> Update(UpdateQuestionRequest req)
     {
         await _repo.UpdateQuestionAsync(req);
