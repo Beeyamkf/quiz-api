@@ -15,13 +15,13 @@ public class QuestionController : ControllerBase
         _repo = repo;
     }
 
-    // =========================
-    // CREATE QUESTION + CHOICES
-    // =========================
     [HttpPost("create-full")]
-    public async Task<IActionResult> CreateFull(CreateQuestionWithChoicesRequest req)
+    public async Task<IActionResult> CreateFull([FromBody] CreateQuestionWithChoicesRequest req)
     {
-        if (req == null || string.IsNullOrWhiteSpace(req.Text))
+        if (req == null)
+            return BadRequest("Request is null");
+
+        if (string.IsNullOrWhiteSpace(req.Text))
             return BadRequest("Question text is required");
 
         if (req.Choices == null || req.Choices.Count < 2)
@@ -50,15 +50,15 @@ public class QuestionController : ControllerBase
 
         return Ok(new
         {
-            QuestionId = questionId,
-            Message = "Created successfully"
+            QuestionId = questionId
         });
     }
 
-    // =========================
-    // UPDATE QUESTION TEXT
-    // =========================
-    [HttpPut("update")]
+
+// =========================
+// UPDATE QUESTION TEXT
+// =========================
+[HttpPut("update")]
     public async Task<IActionResult> Update(UpdateQuestionRequest req)
     {
         await _repo.UpdateQuestionAsync(req);
