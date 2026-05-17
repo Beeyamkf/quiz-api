@@ -28,9 +28,9 @@ namespace QuizAPI.Repositories;
         public async Task<int> AddQuestionAsync(Question q)
         {
             var sql = @"
-            INSERT INTO Question (QuizId, Text)
-            VALUES (@QuizId, @Text)
-            RETURNING Id;
+            INSERT INTO question (quizid, text)
+            VALUES (@quizId, @text)
+            RETURNING id;
         ";
 
             using var db = Connection;
@@ -40,9 +40,9 @@ namespace QuizAPI.Repositories;
         public async Task<int> AddChoiceAsync(Choice c)
         {
             var sql = @"
-            INSERT INTO Choice (QuestionId, Text, IsCorrect)
-            VALUES (@QuestionId, @Text, @IsCorrect)
-            RETURNING Id;
+            INSERT INTO choice (questionid, text, iscorrect)
+            VALUES (@questionid, @text, @iscorrect)
+            RETURNING id;
         ";
 
             using var db = Connection;
@@ -51,7 +51,7 @@ namespace QuizAPI.Repositories;
 
         public async Task UpdateQuestionAsync(UpdateQuestionRequest req)
         {
-            var sql = @"UPDATE Question SET Text=@Text WHERE Id=@Id";
+            var sql = @"UPDATE question SET text=@text WHERE id=@id";
 
             using var db = Connection;
             await db.ExecuteAsync(sql, req);
@@ -62,12 +62,12 @@ namespace QuizAPI.Repositories;
         using var db = Connection;
 
         await db.ExecuteAsync(
-            "DELETE FROM Choice WHERE QuestionId = @id",
+            "DELETE FROM choice WHERE questionid = @id",
             new { id }
         );
 
         await db.ExecuteAsync(
-            "DELETE FROM Question WHERE Id = @id",
+            "DELETE FROM question WHERE id = @id",
             new { id }
         );
     }

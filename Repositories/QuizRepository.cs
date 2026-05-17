@@ -35,9 +35,9 @@ public class QuizRepository : IQuizRepository
     public async Task<int> CreateQuizAsync(Quiz quiz)
     {
         var sql = @"
-            INSERT INTO Quiz (Title, Code, TeacherId)
-            VALUES (@Title, @Code, @TeacherId)
-            RETURNING Id;
+            INSERT INTO quiz (title, code, teacherid)
+            VALUES (@title, @code, @teacherid)
+            RETURNING id;
         ";
 
         using var db = Connection;
@@ -46,7 +46,7 @@ public class QuizRepository : IQuizRepository
 
     public async Task<Quiz> GetByCode(string code)
     {
-        var sql = "SELECT * FROM Quiz WHERE Code = @code";
+        var sql = "SELECT * FROM quiz WHERE code = @code";
 
         using var db = Connection;
         return await db.QueryFirstOrDefaultAsync<Quiz>(sql, new { code });
@@ -54,7 +54,7 @@ public class QuizRepository : IQuizRepository
 
     public async Task<Quiz> GetByIdAsync(int id)
     {
-        var sql = "SELECT * FROM Quiz WHERE Id = @Id";
+        var sql = "SELECT * FROM quiz WHERE id = @id";
 
         using var db = Connection;
         return await db.QueryFirstOrDefaultAsync<Quiz>(sql, new { Id = id });
@@ -63,10 +63,10 @@ public class QuizRepository : IQuizRepository
     public async Task<IEnumerable<Quiz>> GetByTeacherIdAsync(int teacherId)
     {
         var sql = @"
-            SELECT Id, Title, Code, TeacherId
-            FROM Quiz
-            WHERE TeacherId = @teacherId
-            ORDER BY Id DESC";
+           SELECT id, title, code, teacherid
+            FROM quiz
+            WHERE teacherid = @teacherId
+            ORDER BY id DESC";
 
         using var db = Connection;
         return await db.QueryAsync<Quiz>(sql, new { teacherId });
@@ -79,14 +79,14 @@ public class QuizRepository : IQuizRepository
     {
         var sql = @"
     SELECT 
-        q.Id,
-        q.Text,
-        c.Id,
-        c.Text,
-        c.IsCorrect
-    FROM Question q
-    LEFT JOIN Choice c ON q.Id = c.QuestionId
-    WHERE q.QuizId = @quizId";
+       q.id AS questionid,
+    q.text AS questiontext,
+    c.id AS choiceid,
+    c.text AS choicetext,
+    c.iscorrect
+    FROM question q
+    LEFT JOIN choice c ON q.id = c.questionid
+    WHERE q.quizid = @quizId";
 
         using var db = Connection;
 
@@ -116,7 +116,7 @@ public class QuizRepository : IQuizRepository
             return question;
         },
         new { quizId },
-        splitOn: "Id"
+        splitOn: "id"
     );
 
         return dict.Values;
@@ -130,19 +130,19 @@ public class QuizRepository : IQuizRepository
         using var db = Connection;
 
         var quizId = await db.QueryFirstAsync<int>(@"
-            SELECT QuizId FROM StudentAttempt WHERE Id = @attemptId
+            SELECT quizid FROM studentattempt WHERE id = @attemptId
         ", new { attemptId });
 
         var title = await db.QueryFirstOrDefaultAsync<string>(@"
-            SELECT Title FROM Quiz WHERE Id = @quizId
+            SELECT title FROM quiz WHERE id = @quizId
         ", new { quizId });
 
         var sql = @"
-            SELECT q.Id, q.Text,
-                   c.Id, c.Text
-            FROM Question q
-            LEFT JOIN Choice c ON q.Id = c.QuestionId
-            WHERE q.QuizId = @quizId";
+            SELECT q.id, q.text,
+                   c.id, c.text
+            FROM question q
+            LEFT JOIN choice c ON q.id = c.questionid
+            WHERE q.quizid = @quizId";
 
         var dict = new Dictionary<int, StudentQuestionDto>();
 
@@ -168,7 +168,7 @@ public class QuizRepository : IQuizRepository
                 return dict[q.Id];
             },
             new { quizId },
-            splitOn: "Id"
+            splitOn: "id"
         );
 
         return new StudentQuizDto
@@ -185,19 +185,19 @@ public class QuizRepository : IQuizRepository
     {
         using var db = Connection;
 
-        await db.ExecuteAsync(@"DELETE FROM StudentAnswer WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId)", new { quizId });
-        await db.ExecuteAsync(@"DELETE FROM StudentAttempt WHERE QuizId=@quizId", new { quizId });
-        await db.ExecuteAsync(@"DELETE FROM Choice WHERE QuestionId IN (SELECT Id FROM Question WHERE QuizId=@quizId)", new { quizId });
-        await db.ExecuteAsync(@"DELETE FROM Question WHERE QuizId=@quizId", new { quizId });
-        await db.ExecuteAsync(@"DELETE FROM Quiz WHERE Id=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM studentanswer WHERE attemptid IN (SELECT id FROM studentattempt WHERE quizid=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM studentattempt WHERE quizid=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM choice WHERE questionid IN (SELECT id FROM question WHERE quizid=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM question WHERE quizid=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM quiz WHERE id=@quizId", new { quizId });
     }
 
     public async Task ClearQuizResultsAsync(int quizId)
     {
         using var db = Connection;
 
-        await db.ExecuteAsync(@"DELETE FROM StudentAnswer WHERE AttemptId IN (SELECT Id FROM StudentAttempt WHERE QuizId=@quizId)", new { quizId });
-        await db.ExecuteAsync(@"DELETE FROM StudentAttempt WHERE QuizId=@quizId", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM studentanswer WHERE attemptid IN (SELECT id FROM studentattempt WHERE quizid=@quizId)", new { quizId });
+        await db.ExecuteAsync(@"DELETE FROM studentattempt WHERE quizid=@quizId", new { quizId });
     }
 
     public async Task<IEnumerable<object>> GetQuizResults(int quizId)
@@ -205,10 +205,10 @@ public class QuizRepository : IQuizRepository
         using var db = Connection;
 
         var sql = @"
-            SELECT Id, FullName, Score, CreatedAt
-            FROM StudentAttempt
-            WHERE QuizId = @quizId
-            ORDER BY Id DESC";
+            SELECT id, fullName, score, createdat
+            FROM studentattempt
+            WHERE quizid = @quizId
+            ORDER BY id DESC";
 
         return await db.QueryAsync(sql, new { quizId });
     }
@@ -218,9 +218,9 @@ public class QuizRepository : IQuizRepository
         using var db = Connection;
 
         await db.ExecuteAsync(@"
-            UPDATE Quiz
-            SET Title = @title
-            WHERE Id = @quizId
+          UPDATE quiz
+            SET title = @title
+            WHERE id = @quizId
         ", new { quizId, title });
     }
 }

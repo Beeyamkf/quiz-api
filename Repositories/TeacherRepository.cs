@@ -26,9 +26,9 @@ public class TeacherRepository : ITeacherRepository
     public async Task<int> RegisterAsync(Teacher teacher)
     {
         var sql = @"
-            INSERT INTO Teacher (FullName, Email, PasswordHash)
+            INSERT INTO teacher (fullname, email, passwordhash)
             VALUES (@FullName, @Email, @PasswordHash)
-            RETURNING Id;
+            RETURNING id;
         ";
 
         using var db = Connection;
@@ -38,9 +38,9 @@ public class TeacherRepository : ITeacherRepository
     public async Task<Teacher> GetByEmailAsync(string email)
     {
         var sql = @"
-            SELECT Id, FullName, Email, PasswordHash
-            FROM Teacher
-            WHERE Email = @Email
+            SELECT id,fullnme, email, passwordhash
+            FROM teacher
+            WHERE email = @Email
             LIMIT 1;
         ";
 

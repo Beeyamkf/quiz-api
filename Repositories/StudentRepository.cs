@@ -34,9 +34,9 @@ public class StudentRepository : IStudentRepository
     public async Task<int> CreateAttempt(StudentAttempt a)
     {
         var sql = @"
-            INSERT INTO StudentAttempt (QuizId, FullName, Score, CreatedAt)
-            VALUES (@QuizId, @FullName, 0, NOW())
-            RETURNING Id;
+            INSERT INTO studentattempt (quizid, fullname, score, createdat)
+            VALUES (@quizid, @fullname, 0, NOW())
+            RETURNING id;
         ";
 
         using var db = Connection;
@@ -53,12 +53,12 @@ public class StudentRepository : IStudentRepository
     public async Task SaveAnswer(StudentAnswer a)
     {
         var sql = @"
-            INSERT INTO StudentAnswer (AttemptId, QuestionId, ChoiceId, IsCorrect)
-            SELECT @AttemptId, @QuestionId, @ChoiceId, @IsCorrect
-            WHERE NOT EXISTS (
-                SELECT 1 FROM StudentAnswer
-                WHERE AttemptId = @AttemptId AND QuestionId = @QuestionId
-            );
+         INSERT INTO studentanswer (attemptid, questionid, choiceid, iscorrect)
+SELECT @AttemptId, @QuestionId, @ChoiceId, @IsCorrect
+WHERE NOT EXISTS (
+    SELECT 1 FROM studentanswer
+    WHERE attemptid = @AttemptId AND questionid = @QuestionId
+);
         ";
 
         using var db = Connection;
@@ -71,9 +71,9 @@ public class StudentRepository : IStudentRepository
     public async Task<int> GetCorrectChoice(int questionId)
     {
         var sql = @"
-            SELECT Id 
-            FROM Choice
-            WHERE QuestionId = @questionId AND IsCorrect = true
+            SELECT id 
+            FROM choice
+            WHERE questionid = @questionid AND iscorrect = true
             LIMIT 1;
         ";
 
@@ -88,8 +88,8 @@ public class StudentRepository : IStudentRepository
     {
         var sql = @"
             SELECT COUNT(*)
-            FROM StudentAnswer
-            WHERE AttemptId = @attemptId AND IsCorrect = true;
+            FROM studentanswer
+            WHERE attemptid = @attemptId AND iscorrect = true;
         ";
 
         using var db = Connection;
@@ -99,9 +99,9 @@ public class StudentRepository : IStudentRepository
     public async Task UpdateScore(int attemptId, int score)
     {
         var sql = @"
-            UPDATE StudentAttempt
-            SET Score = @score
-            WHERE Id = @attemptId;
+            UPDATE studentattempt
+            SET score = @score
+            WHERE id = @attemptId;
         ";
 
         using var db = Connection;
@@ -116,27 +116,27 @@ public class StudentRepository : IStudentRepository
         using var db = Connection;
 
         var quizId = await db.QueryFirstAsync<int>(@"
-        SELECT QuizId 
-        FROM StudentAttempt 
-        WHERE Id = @attemptId
+        SELECT quizid 
+        FROM studentattempt 
+        WHERE id = @attemptId
     ", new { attemptId });
 
         var title = await db.QueryFirstOrDefaultAsync<string>(@"
-        SELECT Title 
-        FROM Quiz 
-        WHERE Id = @quizId
+        SELECT title 
+        FROM quiz 
+        WHERE id = @quizId
     ", new { quizId });
 
         var rows = await db.QueryAsync(@"
-        SELECT 
-            q.Id AS QuestionId,
-            q.Text AS QuestionText,
-            c.Id AS ChoiceId,
-            c.Text AS ChoiceText
-        FROM Question q
-        LEFT JOIN Choice c ON q.Id = c.QuestionId
-        WHERE q.QuizId = @quizId
-        ORDER BY q.Id
+       SELECT 
+    q.id AS questionid,
+    q.text AS questiontext,
+    c.id AS choiceid,
+    c.text AS choicetext
+FROM question q
+LEFT JOIN choice c ON q.id = c.questionid
+WHERE q.quizid = @quizId
+ORDER BY q.id
     ", new { quizId });
 
         var dict = new Dictionary<int, StudentQuestionDto>();
@@ -177,10 +177,10 @@ public class StudentRepository : IStudentRepository
     public async Task<IEnumerable<QuizResultDto>> GetQuizResults(int quizId)
     {
         var sql = @"
-            SELECT Id, FullName, Score, CreatedAt
-            FROM StudentAttempt
-            WHERE QuizId = @quizId
-            ORDER BY Id DESC;
+        SELECT id, fullname, score, createdat
+FROM studentattempt
+WHERE quizid = @quizId
+ORDER BY id DESC;
         ";
 
         using var db = Connection;
@@ -195,29 +195,30 @@ public class StudentRepository : IStudentRepository
         using var db = Connection;
 
         var attempt = await db.QueryFirstOrDefaultAsync(@"
-            SELECT Id, FullName, Score
-            FROM StudentAttempt
-            WHERE Id = @resultId
+         SELECT id, fullname, score, createdat
+FROM studentattempt
+
+            WHERE id = @resultId
         ", new { resultId });
 
         if (attempt == null)
             return null;
 
         var rows = await db.QueryAsync(@"
-            SELECT 
-                q.Id AS QuestionId,
-                q.Text AS QuestionText,
-                c.Id AS ChoiceId,
-                c.Text AS ChoiceText,
-                c.IsCorrect,
-                sa.ChoiceId AS SelectedChoiceId
-            FROM Question q
-            LEFT JOIN Choice c ON q.Id = c.QuestionId
-            LEFT JOIN StudentAnswer sa 
-                ON sa.QuestionId = q.Id AND sa.AttemptId = @resultId
-            WHERE q.QuizId = (
-                SELECT QuizId FROM StudentAttempt WHERE Id = @resultId
-            )
+           SELECT 
+    q.id AS questionid,
+    q.text AS questiontext,
+    c.id AS choiceid,
+    c.text AS choicetext,
+    c.iscorrect,
+    sa.choiceid AS selectedchoiceid
+FROM question q
+LEFT JOIN choice c ON q.id = c.questionid
+LEFT JOIN studentanswer sa 
+    ON sa.questionid = q.id AND sa.attemptid = @resultId
+WHERE q.quizid = (
+    SELECT quizid FROM studentattempt WHERE id = @resultId
+)
         ", new { resultId });
 
         var dict = new Dictionary<int, dynamic>();
