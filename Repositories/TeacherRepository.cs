@@ -23,6 +23,9 @@ public class TeacherRepository : ITeacherRepository
     private IDbConnection Connection =>
         new NpgsqlConnection(_config.GetConnectionString("DefaultConnection"));
 
+    // =========================
+    // REGISTER TEACHER
+    // =========================
     public async Task<int> RegisterAsync(Teacher teacher)
     {
         var sql = @"
@@ -35,16 +38,23 @@ public class TeacherRepository : ITeacherRepository
         return await db.QuerySingleAsync<int>(sql, teacher);
     }
 
-    public async Task<Teacher> GetByEmailAsync(string email)
+    // =========================
+    // GET TEACHER BY EMAIL
+    // =========================
+    public async Task<Teacher?> GetByEmailAsync(string email)
     {
         var sql = @"
-            SELECT id,fullnme, email, passwordhash
+            SELECT id, fullname, email, passwordhash
             FROM teacher
-            WHERE email = @Email
+            WHERE email = @email
             LIMIT 1;
         ";
 
         using var db = Connection;
-        return await db.QueryFirstOrDefaultAsync<Teacher>(sql, new { Email = email });
+
+        return await db.QueryFirstOrDefaultAsync<Teacher>(
+            sql,
+            new { email }
+        );
     }
 }
